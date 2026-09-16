@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: 'https://room-backend-b5n8.vercel.app/api',
 });
 
 // Attach token to headers if present in localStorage

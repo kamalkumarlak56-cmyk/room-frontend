@@ -21,6 +21,10 @@ export default function AdminDashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Image upload states
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -30,7 +34,6 @@ export default function AdminDashboard() {
     state: '',
     pincode: '',
     amenities: '',
-    images: '',
   });
 
   const fetchDashboardData = async () => {
@@ -56,11 +59,9 @@ export default function AdminDashboard() {
   const handleStatusUpdate = async (roomId, newStatus) => {
     try {
       await API.patch(`/admin/rooms/${roomId}/status`, { status: newStatus });
-      // Update UI state locally
       setRooms((prev) =>
         prev.map((r) => (r._id === roomId ? { ...r, status: newStatus } : r))
       );
-      // Refresh stats counters
       const statsRes = await API.get('/admin/stats');
       setStats(statsRes.data);
     } catch (err) {
@@ -72,6 +73,23 @@ export default function AdminDashboard() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let uploadedUrls = [];
+
+      // Upload selected files to Cloudinary via backend
+      if (selectedFiles.length > 0) {
+        setUploading(true);
+        const uploadFormData = new FormData();
+        for (let i = 0; i < selectedFiles.length; i++) {
+          uploadFormData.append('images', selectedFiles[i]);
+        }
+
+        const { data: uploadRes } = await API.post('/upload', uploadFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        uploadedUrls = uploadRes.imageUrls;
+        setUploading(false);
+      }
+
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -83,11 +101,12 @@ export default function AdminDashboard() {
           pincode: formData.pincode,
         },
         amenities: formData.amenities.split(',').map((a) => a.trim()).filter(Boolean),
-        images: formData.images.split(',').map((img) => img.trim()).filter(Boolean),
+        images: uploadedUrls,
       };
 
       await API.post('/rooms', payload);
       setShowAddModal(false);
+      setSelectedFiles([]);
       setFormData({
         title: '',
         description: '',
@@ -97,13 +116,13 @@ export default function AdminDashboard() {
         state: '',
         pincode: '',
         amenities: '',
-        images: '',
       });
       fetchDashboardData();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to publish room listing');
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   };
 
@@ -358,14 +377,22 @@ export default function AdminDashboard() {
                 />
               </div>
 
+              {/* Direct File Selector */}
               <div>
-                <label className="block text-slate-300 mb-1">Image URLs (comma-separated)</label>
+                <label className="block text-slate-300 mb-1">Upload Room Photos (Max 5)</label>
                 <input
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-white"
-                  value={formData.images}
-                  onChange={(e) => setFormData({ ...formData, images: e.target.value })}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => setSelectedFiles(e.target.files)}
+                  className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500/10 file:text-amber-400 hover:file:bg-amber-500/20 cursor-pointer bg-slate-800 border border-slate-700 rounded-lg p-1.5"
                 />
+                {uploading && (
+                  <p className="text-xs text-amber-400 mt-1 animate-pulse">Uploading photos to Cloudinary...</p>
+                )}
+                {selectedFiles.length > 0 && (
+                  <p className="text-xs text-slate-400 mt-1">{selectedFiles.length} file(s) selected</p>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-3">
@@ -378,8 +405,8 @@ export default function AdminDashboard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-semibold"
+                  disabled={submitting || uploading}
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 text-sm font-semibold"
                 >
                   {submitting ? 'Publishing...' : 'Publish Room'}
                 </button>

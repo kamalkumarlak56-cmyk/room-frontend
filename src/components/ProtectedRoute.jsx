@@ -9,7 +9,9 @@ const ProtectedRoute = ({ allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  const normalizedRole = user.role === 'landlord' ? 'owner' : user.role;
+
+  if (allowedRoles && !allowedRoles.includes(normalizedRole)) {
     return <Navigate to="/" replace />;
   }
 

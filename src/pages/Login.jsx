@@ -2,10 +2,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Button, Card, Input, Label } from '../components/ui/shadcn';
+import { Home, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,65 +30,83 @@ export default function Login() {
         navigate('/');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      setError(
+        err.response?.data?.message || 'Login failed. Please check your credentials.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-slate-950 px-4">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-xl">
-        <h2 className="text-2xl font-bold text-white text-center mb-2">Welcome Back</h2>
-        <p className="text-sm text-slate-400 text-center mb-6">Sign in to your Room Radar account</p>
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-[#0a0b0d] px-4">
+      <Card className="max-w-md w-full p-8 bg-[#121316] border border-neutral-800">
+        <div className="text-center mb-6">
+          <div className="w-11 h-11 rounded-2xl bg-neutral-900 border border-[#d8cdbf]/40 flex items-center justify-center mx-auto mb-3 shadow-sm">
+            <Home className="w-6 h-6 text-[#f5efe6]" />
+          </div>
+          <h2 className="text-2xl font-extrabold text-white">Welcome Back</h2>
+          <p className="text-xs text-neutral-400 mt-1">
+            Sign in as User, Owner, or Admin
+          </p>
+        </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-2 rounded mb-4 text-sm">
+          <div className="bg-rose-500/10 border border-rose-500/40 text-rose-400 px-4 py-2.5 rounded-xl mb-4 text-xs">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Email Address</label>
-            <input
+            <Label>Email Address</Label>
+            <Input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500"
-              placeholder="••••••••"
-            />
+            <Label>Password</Label>
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition cursor-pointer"
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition"
-          >
+          <Button type="submit" disabled={loading} className="w-full" size="lg">
             {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+          </Button>
         </form>
 
-        <p className="text-slate-400 text-center text-sm mt-6">
+        <p className="text-neutral-400 text-center text-xs mt-6">
           Don't have an account?{' '}
-          <Link to="/register" className="text-sky-400 hover:underline">
+          <Link to="/register" className="text-[#f5efe6] font-semibold hover:underline">
             Register here
           </Link>
         </p>
-      </div>
+      </Card>
     </div>
   );
 }

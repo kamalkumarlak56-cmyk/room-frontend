@@ -1,1 +1,370 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer utilities {
+  .room-card-container {
+    container-type: inline-size;
+  }
+}
+
+:root,
+html.dark,
+[data-theme="dark"] {
+  --color-bg-app: #0a0b0d;
+  --color-bg-card: #121316;
+  --color-bg-elevated: #18191e;
+  --color-bg-input: #0f1013;
+  --color-border: #26272b;
+  --color-text-title: #ffffff;
+  --color-text-body: #d4d4d8;
+  --color-text-muted: #8e8e93;
+  --color-cream: #f5efe6;
+  --color-cream-border: #d8cdbf;
+  color-scheme: dark;
+}
+
+html.light,
+[data-theme="light"] {
+  --color-bg-app: #f9f6f0;
+  --color-bg-card: #ffffff;
+  --color-bg-elevated: #f3ede2;
+  --color-bg-input: #ffffff;
+  --color-border: #e2dbcf;
+  --color-text-title: #121316;
+  --color-text-body: #2e3036;
+  --color-text-muted: #6b6863;
+  --color-cream: #121316;
+  --color-cream-border: #d8cdbf;
+  color-scheme: light;
+}
+
+/* Base Body Styles */
+body {
+  background-color: var(--color-bg-app, #0a0b0d);
+  color: var(--color-text-body, #f4f4f5);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Professional sleek dark scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0b0d;
+}
+::-webkit-scrollbar-thumb {
+  background: #24262b;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #383b43;
+}
+
+/* =========================================================================
+   LIGHT THEME: REFINED PALETTE (BLACK, GRAY, WHITE, ARCHITECTURAL CREAM)
+   ========================================================================= */
+
+html.light body {
+  background-color: #f9f6f0;
+  color: #27272a;
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #f9f6f0;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #d8cdbf;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #b8ac9c;
+}
+
+/* Root & Page Backgrounds */
+html.light,
+html.light body,
+html.light #root,
+html.light .min-h-screen:not([data-slider-media]),
+html[data-theme="light"],
+html[data-theme="light"] body,
+html[data-theme="light"] #root,
+html[data-theme="light"] .min-h-screen:not([data-slider-media]),
+html.light .bg-\[\#0a0b0d\],
+html.light .bg-\[\#0a0b0d\]\/95,
+html.light .bg-\[\#0a0b0d\]\/90,
+html.light .bg-\[\#0a0b0d\]\/80 {
+  background-color: #f9f6f0 !important;
+}
+
+html.dark,
+html.dark body,
+html.dark #root,
+html.dark .min-h-screen,
+html[data-theme="dark"],
+html[data-theme="dark"] body,
+html[data-theme="dark"] #root,
+html[data-theme="dark"] .min-h-screen {
+  background-color: #0a0b0d !important;
+}
+
+/* Sticky Navbar & Mobile dropdown */
+html.light nav.bg-\[\#0a0b0d\]\/95,
+html.light nav {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2dbcf !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+}
+
+html.light .bg-\[\#0e0f13\] {
+  background-color: #ffffff !important;
+  border-color: #e2dbcf !important;
+}
+
+/* Cards & Surface Containers */
+html.light .bg-\[\#121316\],
+html.light .bg-\[\#121316\]\/95,
+html.light .bg-\[\#121316\]\/90,
+html.light .bg-\[\#121316\]\/80,
+html.light .bg-\[\#121316\]\/60,
+html.light .bg-\[\#121316\]\/50,
+html.light .room-card-container {
+  background-color: #ffffff !important;
+  border-color: #e2dbcf !important;
+  box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.04);
+}
+
+/* Elevated Sub-surfaces & Secondary Sections */
+html.light .bg-\[\#18191e\] {
+  background-color: #f3ede2 !important;
+  border-color: #ded6c9 !important;
+}
+
+html.light .bg-\[\#0f1013\] {
+  background-color: #f8f5ee !important;
+  border-color: #e2dbcf !important;
+}
+
+html.light .bg-neutral-900,
+html.light .bg-neutral-900\/60,
+html.light .bg-neutral-900\/80,
+html.light .bg-neutral-900\/90 {
+  background-color: #f4eee5 !important;
+  border-color: #ded6c9 !important;
+}
+
+html.light .bg-\[\#141519\] {
+  background-color: #f8f5ee !important;
+  border-color: #e2dbcf !important;
+}
+
+html.light .from-\[\#141519\] {
+  --tw-gradient-from: #f3ede2 !important;
+  --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) 0%, var(--tw-gradient-to) 100%) !important;
+}
+html.light .via-\[\#0f1013\] {
+  --tw-gradient-via: #f6f1e8 !important;
+}
+html.light .to-\[\#0a0b0d\] {
+  --tw-gradient-to: #f9f6f0 !important;
+}
+
+/* Hover States in Light Mode */
+html.light .hover\:bg-neutral-900:hover,
+html.light .hover\:bg-neutral-850:hover,
+html.light .hover\:bg-neutral-800:hover,
+html.light .hover\:bg-neutral-800\/60:hover,
+html.light .hover\:bg-neutral-800\/70:hover,
+html.light .hover\:bg-neutral-800\/80:hover {
+  background-color: #ede5da !important;
+}
+
+/* Borders */
+html.light .border-neutral-800,
+html.light .border-neutral-800\/90,
+html.light .border-neutral-800\/80,
+html.light .border-neutral-750,
+html.light .border-neutral-700,
+html.light .border-neutral-700\/80 {
+  border-color: #e2dbcf !important;
+}
+
+/* Typography in Light Mode (Preserving photo overlays & colored badges) */
+html.light h1:not([data-overlay-text]),
+html.light h2:not([data-overlay-text]),
+html.light h3:not([data-overlay-text]),
+html.light h4:not([data-overlay-text]),
+html.light h5:not([data-overlay-text]) {
+  color: #121316 !important;
+}
+
+html.light .room-card-container h3 {
+  color: #121316 !important;
+}
+
+html.light .text-neutral-100 {
+  color: #18181b !important;
+}
+
+html.light .text-neutral-200 {
+  color: #27272a !important;
+}
+
+html.light .text-neutral-300 {
+  color: #3f3f46 !important;
+}
+
+html.light .text-neutral-400 {
+  color: #6b6863 !important;
+}
+
+/* In Light Mode: Yellow/amber text is not properly visible on light surfaces - use deep, rich dark amber (#78350f / amber-900) */
+html.light .text-amber-200,
+html.light .text-amber-300,
+html.light .text-amber-400,
+html.light .text-amber-500,
+html.light .text-yellow-300,
+html.light .text-yellow-400,
+html.light .text-yellow-500,
+html.light .text-amber-300\/80,
+html.light .text-amber-400\/80 {
+  color: #78350f !important;
+}
+
+/* In Light Mode: NEVER allow text to be white or pale cream on light surfaces (except intentional dark badges) */
+html.light .text-white:not([data-keep-white]):not([data-overlay-text]):not([data-overlay-text] *):not([data-slider-media] *):not([data-card-media] *):not(.bg-neutral-900 *):not(.bg-neutral-950 *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-emerald-500 *):not(.bg-emerald-600 *):not([data-role-badge]):not([data-role-badge] *),
+html.light .text-\[\#f5efe6\]:not([data-keep-white]):not([data-overlay-text]):not([data-overlay-text] *):not([data-slider-media] *):not([data-card-media] *):not(.bg-neutral-900 *):not(.bg-neutral-950 *):not([data-role-badge]):not([data-role-badge] *) {
+  color: #121316 !important;
+}
+
+/* In light mode: role badge (written user / owner) MUST have CREAM background and dark text */
+html.light [data-role-badge],
+html[data-theme="light"] [data-role-badge],
+.light [data-role-badge],
+html.light .badge-role,
+html.light .badge-owner,
+html.light .badge-user {
+  color: #121316 !important;
+  background-color: #f5efe6 !important;
+  border-color: #d8cdbf !important;
+}
+
+/* In dark mode: role badge MUST have dark surface and crisp light/white text */
+html.dark [data-role-badge],
+html[data-theme="dark"] [data-role-badge],
+.dark [data-role-badge] {
+  color: #ffffff !important;
+  background-color: #171717 !important;
+  border-color: #383b43 !important;
+}
+
+/* Elements with cream (#f5efe6) or white background MUST have dark text, except dark pills like [data-theme-pill] in dark mode */
+.bg-\[\#f5efe6\],
+button.bg-\[\#f5efe6\],
+a.bg-\[\#f5efe6\],
+.bg-\[\#f5efe6\] *:not([class*="text-rose"]):not([class*="text-emerald"]):not([class*="text-sky"]):not([class*="text-amber"]):not([data-theme-pill]):not([data-keep-light]) {
+  color: #121316 !important;
+}
+
+/* In dark mode, written 'Dark' inside theme pill MUST be crisp light/white text */
+html.dark [data-theme-pill],
+html[data-theme="dark"] [data-theme-pill],
+.dark [data-theme-pill] {
+  color: #ffffff !important;
+}
+
+html.light [data-theme-pill],
+html[data-theme="light"] [data-theme-pill],
+.light [data-theme-pill] {
+  color: #121316 !important;
+}
+
+/* Over photo overlays and image slides, keep text readable and crisp */
+[data-overlay-text],
+[data-overlay-text] *:not([data-dark-pill]):not([data-dark-pill] *):not([data-dark-text]):not([data-dark-text] *),
+[data-media-badge-white],
+[data-media-badge-white] * {
+  color: #ffffff !important;
+}
+
+/* Explicit high-contrast white pills with dark text over photos (1BHK, 2BHK, 1RK, etc.) */
+[data-dark-pill],
+[data-dark-pill] *,
+[data-dark-text],
+[data-dark-text] * {
+  color: #121316 !important;
+  background-color: #ffffff !important;
+}
+
+/* Forms, Inputs, Selects, Textareas */
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #121316 !important;
+  border-color: #d8cdbf !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #8c8780 !important;
+}
+
+/* Dialogs & Modal Popups */
+html.light .fixed .bg-\[\#121316\],
+html.light [role="dialog"] .bg-\[\#121316\] {
+  background-color: #ffffff !important;
+  border-color: #e2dbcf !important;
+}
+
+/* Chat Page Message Bubbles: High Contrast & Legibility in Light & Dark Mode */
+html.light .chat-bubble-sent {
+  background-color: #121316 !important;
+  color: #ffffff !important;
+  border-color: #27272a !important;
+}
+
+html.light .chat-bubble-sent p,
+html.light .chat-bubble-sent span {
+  color: #ffffff !important;
+}
+
+html.light .chat-bubble-received {
+  background-color: #ffffff !important;
+  color: #121316 !important;
+  border-color: #e2dbcf !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .chat-bubble-received p {
+  color: #121316 !important;
+}
+
+html.light .chat-bubble-received span {
+  color: #6b6863 !important;
+}
+
+html.dark .chat-bubble-sent {
+  background-color: #f5efe6 !important;
+  color: #121316 !important;
+  border-color: #d8cdbf !important;
+}
+
+html.dark .chat-bubble-sent p,
+html.dark .chat-bubble-sent span {
+  color: #121316 !important;
+}
+
+html.dark .chat-bubble-received {
+  background-color: #1e2025 !important;
+  color: #ffffff !important;
+  border-color: #383b43 !important;
+}
+
+html.dark .chat-bubble-received p {
+  color: #f4f4f5 !important;
+}
+
+html.dark .chat-bubble-received span {
+  color: #a1a1aa !important;
+}

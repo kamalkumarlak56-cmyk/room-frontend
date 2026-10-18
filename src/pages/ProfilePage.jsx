@@ -1,6 +1,6 @@
 // client/src/pages/ProfilePage.jsx
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import API from '../api/axios';
@@ -47,12 +47,22 @@ import {
   MessageSquare,
   Search,
   Star,
+  Landmark,
 } from 'lucide-react';
+
+export const getRoleDisplayName = (role) => {
+  if (!role) return 'Tenant / User';
+  const r = role.toLowerCase();
+  if (r === 'admin') return 'Admin';
+  if (r === 'owner' || r === 'landlord') return 'Owner';
+  return 'Tenant / User';
+};
 
 export default function ProfilePage() {
   const { user, updateProfile, refreshProfile, changePassword, logout } = useAuth();
   const { setTheme, isDark } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleLogout = () => {
     logout();
@@ -63,11 +73,21 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
 
   // Active section in left nav:
-  // 'overview' (DEFAULT on enter - shows details & booked room, NOT edit form directly!)
-  // 'edit-profile' | 'document' | 'password' | 'theme' | 'visited' | 'older'
-  const [activeSection, setActiveSection] = useState('overview');
+  // 'overview' (DEFAULT on enter) | 'edit-profile' | 'document' | 'password' | 'visited' | 'older'
+  const [activeSection, setActiveSection] = useState(() => {
+    const s = searchParams.get('section') || searchParams.get('tab');
+    if (s) return s;
+    return 'overview';
+  });
 
-  // 1. Edit Profile Form State (Personal details ONLY - NO document, NO password)
+  useEffect(() => {
+    const s = searchParams.get('section') || searchParams.get('tab');
+    if (s) {
+      setActiveSection(s);
+    }
+  }, [searchParams]);
+
+  // 1. Edit Profile Form State (Supports admin credentials and password as well)
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -75,6 +95,7 @@ export default function ProfilePage() {
     location: '',
     profilePic: '',
     role: 'user',
+    password: '',
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState('');
@@ -94,6 +115,19 @@ export default function ProfilePage() {
   const [docSuccess, setDocSuccess] = useState('');
   const [docError, setDocError] = useState('');
   const [isEditingDoc, setIsEditingDoc] = useState(false);
+
+  // Bank Account State
+  const [bankForm, setBankForm] = useState({
+    accountHolderName: '',
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    upiId: '',
+  });
+  const [savingBank, setSavingBank] = useState(false);
+  const [isEditingBank, setIsEditingBank] = useState(false);
+  const [bankSuccess, setBankSuccess] = useState('');
+  const [bankError, setBankError] = useState('');
 
   // 3. Change Password Form State (Verifies older password first)
   const [passwordForm, setPasswordForm] = useState({
@@ -146,6 +180,7 @@ export default function ProfilePage() {
         location: data.location || '',
         profilePic: data.profilePic || '',
         role: data.role || 'user',
+        password: '',
       });
 
       const initialDocType =
@@ -164,6 +199,14 @@ export default function ProfilePage() {
         panNumber: data.panDetails?.number || '',
         panDocUrl: data.panDetails?.documentUrl || '',
       });
+
+      setBankForm({
+        accountHolderName: data.accountDetails?.accountHolderName || '',
+        bankName: data.accountDetails?.bankName || '',
+        accountNumber: data.accountDetails?.accountNumber || '',
+        ifscCode: data.accountDetails?.ifscCode || '',
+        upiId: data.accountDetails?.upiId || '',
+      });
     } catch (err) {
       console.error('Failed to load profile', err);
     } finally {
@@ -174,6 +217,19 @@ export default function ProfilePage() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    if (activeSection === 'theme') {
+      setActiveSection('overview');
+    }
+    const isOwnerOrAdmin =
+      (profile?.role || user?.role) === 'owner' ||
+      (profile?.role || user?.role) === 'landlord' ||
+      (profile?.role || user?.role) === 'admin';
+    if (isOwnerOrAdmin && ['visited', 'older'].includes(activeSection)) {
+      setActiveSection('overview');
+    }
+  }, [profile?.role, user?.role, activeSection]);
 
   // Upload image to Cloudinary
   const handleCloudinaryUpload = async (file, onDone) => {
@@ -241,25 +297,18 @@ export default function ProfilePage() {
     }
   };
 
-  // Switch role back to User ("Be User" button in header card when user is Owner)
+  // Switch role back to User ("Be User" button in header card) and redirect to homepage
   const handleBecomeUser = async () => {
-    if (
-      !window.confirm(
-        'Do you want to switch your account back to regular Tenant / User mode?'
-      )
-    ) {
-      return;
-    }
     try {
       setSavingProfile(true);
       await updateProfile({ role: 'user' });
       await loadProfile();
       if (refreshProfile) await refreshProfile();
-      alert('Your account is now switched back to Tenant / User mode.');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update account role.');
+      console.error('Failed to update account role:', err);
     } finally {
       setSavingProfile(false);
+      navigate('/');
     }
   };
 
@@ -275,16 +324,23 @@ export default function ProfilePage() {
         name: editForm.name.trim(),
         email: editForm.email.trim(),
         phone: editForm.phone.trim(),
-        location: editForm.location.trim(),
         profilePic: editForm.profilePic,
-        role: editForm.role,
+        role: editForm.role || (isAdmin ? 'admin' : 'user'),
       };
+
+      if (editForm.location) {
+        payload.location = editForm.location.trim();
+      }
+
+      if (editForm.password && editForm.password.trim().length > 0) {
+        payload.password = editForm.password.trim();
+      }
 
       await updateProfile(payload);
       await loadProfile();
       if (refreshProfile) await refreshProfile();
 
-      setProfileSuccess('Profile details updated successfully!');
+      setProfileSuccess(isAdmin ? 'Admin credentials updated successfully!' : 'Profile details updated successfully!');
       setTimeout(() => {
         setProfileSuccess('');
         setActiveSection('overview');
@@ -354,6 +410,53 @@ export default function ProfilePage() {
       setDocError(err.response?.data?.message || 'Failed to verify and save document.');
     } finally {
       setSavingDoc(false);
+    }
+  };
+
+  // 2b. Save Bank Account Details
+  const handleSaveBank = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setBankError('');
+    setBankSuccess('');
+
+    if (!bankForm.accountHolderName.trim()) {
+      setBankError('Please enter Account Holder Name.');
+      return;
+    }
+    if (!bankForm.bankName.trim()) {
+      setBankError('Please enter Bank Name.');
+      return;
+    }
+    if (!bankForm.accountNumber.trim()) {
+      setBankError('Please enter Bank Account Number.');
+      return;
+    }
+    if (!bankForm.ifscCode.trim()) {
+      setBankError('Please enter a valid IFSC Code.');
+      return;
+    }
+
+    try {
+      setSavingBank(true);
+      await updateProfile({
+        accountDetails: {
+          accountHolderName: bankForm.accountHolderName.trim(),
+          bankName: bankForm.bankName.trim(),
+          accountNumber: bankForm.accountNumber.trim(),
+          ifscCode: bankForm.ifscCode.trim().toUpperCase(),
+          upiId: bankForm.upiId.trim(),
+        },
+      });
+      await loadProfile();
+      if (refreshProfile) await refreshProfile();
+
+      setIsEditingBank(false);
+      setBankSuccess('Bank account details updated successfully!');
+      setTimeout(() => setBankSuccess(''), 5000);
+    } catch (err) {
+      setBankError(err.response?.data?.message || 'Failed to update bank account details.');
+    } finally {
+      setSavingBank(false);
     }
   };
 
@@ -578,6 +681,10 @@ export default function ProfilePage() {
       ? profile?.panDetails?.documentUrl
       : '';
 
+  const currentRole = profile?.role || user?.role;
+  const isOwner = currentRole === 'owner' || currentRole === 'landlord';
+  const isAdmin = currentRole === 'admin';
+
   return (
     <div
       className={`min-h-screen p-3 sm:p-5 max-w-7xl mx-auto space-y-5 pb-20 pt-3 sm:pt-4 transition-colors ${
@@ -597,16 +704,18 @@ export default function ProfilePage() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="cream" className="text-xs px-2.5 py-0.5 font-semibold">
-            {profile?.role === 'owner' ? 'Property Owner' : profile?.role === 'admin' ? 'Administrator' : 'Tenant / User'}
+            {getRoleDisplayName(profile?.role || user?.role)}
           </Badge>
-          {hasDocument ? (
-            <Badge variant="success" className="text-xs">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-            </Badge>
-          ) : (
-            <Badge variant="warning" className="text-xs">
-              <AlertCircle className="w-3.5 h-3.5" /> KYC Pending
-            </Badge>
+          {!isAdmin && (
+            hasDocument ? (
+              <Badge variant="success" className="text-xs">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Verified
+              </Badge>
+            ) : (
+              <Badge variant="warning" className="text-xs">
+                <AlertCircle className="w-3.5 h-3.5" /> KYC Pending
+              </Badge>
+            )
           )}
         </div>
       </div>
@@ -646,7 +755,7 @@ export default function ProfilePage() {
                         : '!text-neutral-950 !bg-[#f5efe6] !border-[#d8cdbf]'
                     }`}
                   >
-                    {profile?.role || user?.role || 'User'}
+                    {getRoleDisplayName(profile?.role || user?.role)}
                   </Badge>
                 </div>
               </div>
@@ -691,48 +800,50 @@ export default function ProfilePage() {
               </div>
             </button>
 
-            {/* 3. Document */}
-            <button
-              type="button"
-              onClick={() => setActiveSection('document')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
-                activeSection === 'document'
-                  ? 'bg-[#f5efe6] text-neutral-950 shadow-xs'
-                  : isDark
-                    ? 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
-                    : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da]'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <FileText className="w-4 h-4" />
-                <span>Document</span>
-              </div>
-              {hasDocument ? (
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
-                    activeSection === 'document'
-                      ? 'bg-neutral-900 text-emerald-400'
-                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  }`}
-                >
-                  Verified
-                </span>
-              ) : (
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
-                    activeSection === 'document'
-                      ? isDark
-                        ? 'bg-neutral-900 text-amber-400'
-                        : 'bg-white text-amber-950 border border-neutral-300'
-                      : isDark
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                      : 'bg-amber-100 text-amber-950 border border-amber-300'
-                  }`}
-                >
-                  Pending
-                </span>
-              )}
-            </button>
+            {/* 3. Document - Shown for Tenant & Owner, removed for Admin */}
+            {!isAdmin && (
+              <button
+                type="button"
+                onClick={() => setActiveSection('document')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
+                  activeSection === 'document'
+                    ? 'bg-[#f5efe6] text-neutral-950 shadow-xs'
+                    : isDark
+                      ? 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
+                      : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4" />
+                  <span>Document</span>
+                </div>
+                {hasDocument ? (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                      activeSection === 'document'
+                        ? 'bg-neutral-900 text-emerald-400'
+                        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    }`}
+                  >
+                    Verified
+                  </span>
+                ) : (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                      activeSection === 'document'
+                        ? isDark
+                          ? 'bg-neutral-900 text-amber-400'
+                          : 'bg-white text-amber-950 border border-neutral-300'
+                        : isDark
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'bg-amber-100 text-amber-950 border border-amber-300'
+                    }`}
+                  >
+                    Pending
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* 4. Change Password */}
             <button
@@ -752,95 +863,68 @@ export default function ProfilePage() {
               </div>
             </button>
 
-            {/* 5. Visited Rooms */}
-            <button
-              type="button"
-              onClick={() => setActiveSection('visited')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
-                activeSection === 'visited'
-                  ? 'bg-[#f5efe6] text-neutral-950 shadow-xs'
-                  : isDark
-                    ? 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
-                    : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da]'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Visited Rooms</span>
-              </div>
-              <span
-                className={`text-xs px-2.5 py-0.5 rounded-full font-bold transition-all shadow-xs ${
-                  activeSection === 'visited'
-                    ? 'bg-white text-neutral-950 border border-neutral-300'
-                    : isDark
-                    ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/60'
-                    : 'bg-neutral-200 text-neutral-700 border border-neutral-300/60'
-                }`}
-              >
-                {visitedRoomsList.length}
-              </span>
-            </button>
+            {/* 5. Visited Rooms, 6. Rental History, 7. Theme - Shown ONLY for Tenants/Users, hidden for Property Owners & Admins */}
+            {!isOwner && !isAdmin && (
+              <>
+                {/* 5. Visited Rooms */}
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('visited')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
+                    activeSection === 'visited'
+                      ? 'bg-[#f5efe6] text-neutral-950 shadow-xs'
+                      : isDark
+                        ? 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
+                        : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Visited Rooms</span>
+                  </div>
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold transition-all shadow-xs ${
+                      activeSection === 'visited'
+                        ? 'bg-white text-neutral-950 border border-neutral-300'
+                        : isDark
+                        ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/60'
+                        : 'bg-neutral-200 text-neutral-700 border border-neutral-300/60'
+                    }`}
+                  >
+                    {visitedRoomsList.length}
+                  </span>
+                </button>
 
-            {/* 6. Rental History / Older Rooms */}
-            <button
-              type="button"
-              onClick={() => setActiveSection('older')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
-                activeSection === 'older'
-                  ? 'bg-[#f5efe6] text-neutral-950 shadow-xs'
-                  : isDark
-                    ? 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
-                    : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da]'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <History className="w-4 h-4 text-[#d8cdbf]" />
-                <span>Rental History</span>
-              </div>
-              <span
-                className={`text-xs px-2.5 py-0.5 rounded-full font-bold transition-all shadow-xs ${
-                  activeSection === 'older'
-                    ? 'bg-white text-neutral-950 border border-neutral-300'
-                    : isDark
-                    ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/60'
-                    : 'bg-neutral-200 text-neutral-700 border border-neutral-300/60'
-                }`}
-              >
-                {allOlderRooms.length}
-              </span>
-            </button>
-
-            {/* 7. Theme (Dark or Light) */}
-            <button
-              type="button"
-              onClick={() => setActiveSection('theme')}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
-                activeSection === 'theme'
-                  ? 'bg-[#f5efe6] text-neutral-950 shadow-xs'
-                  : isDark
-                    ? 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
-                    : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da]'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                {isDark ? (
-                  <Moon className="w-4 h-4 text-[#d8cdbf]" />
-                ) : (
-                  <Sun className="w-4 h-4 text-amber-500" />
-                )}
-                <span>Theme ({isDark ? 'Dark' : 'Light'})</span>
-              </div>
-              <span
-                data-theme-pill
-                className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
-                  isDark
-                    ? 'bg-neutral-900 !text-white border border-neutral-700'
-                    : 'bg-white !text-neutral-950 border border-neutral-300'
-                }`}
-              >
-                {isDark ? 'Dark' : 'Light'}
-              </span>
-            </button>
+                {/* 6. Rental History / Older Rooms */}
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('older')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer ${
+                    activeSection === 'older'
+                      ? 'bg-[#f5efe6] text-neutral-950 shadow-xs'
+                      : isDark
+                        ? 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
+                        : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <History className="w-4 h-4 text-[#d8cdbf]" />
+                    <span>Rental History</span>
+                  </div>
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold transition-all shadow-xs ${
+                      activeSection === 'older'
+                        ? 'bg-white text-neutral-950 border border-neutral-300'
+                        : isDark
+                        ? 'bg-neutral-800 text-neutral-300 border border-neutral-700/60'
+                        : 'bg-neutral-200 text-neutral-700 border border-neutral-300/60'
+                    }`}
+                  >
+                    {allOlderRooms.length}
+                  </span>
+                </button>
+              </>
+            )}
 
             {/* Divider */}
             <div className={`pt-1.5 border-t my-1 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`} />
@@ -893,28 +977,30 @@ export default function ProfilePage() {
                               : '!text-neutral-950 !bg-[#f5efe6] !border-[#d8cdbf]'
                           }`}
                         >
-                          {profile?.role || user?.role || 'User'}
+                          {getRoleDisplayName(profile?.role || user?.role)}
                         </Badge>
                       </div>
                       <p className={`text-xs sm:text-sm mt-0.5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
                         {profile?.email || user?.email}
                       </p>
-                      <div className="mt-2">
-                        {hasDocument ? (
-                          <Badge variant="success" className="text-xs">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> {activeDocType === 'aadhar' ? 'Aadhaar Verified' : 'PAN Verified'}
-                          </Badge>
-                        ) : (
-                          <Badge variant="warning" className="text-xs">
-                            <AlertCircle className="w-3.5 h-3.5" /> KYC Document Pending
-                          </Badge>
-                        )}
-                      </div>
+                      {!isAdmin && (
+                        <div className="mt-2">
+                          {hasDocument ? (
+                            <Badge variant="success" className="text-xs">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> {activeDocType === 'aadhar' ? 'Aadhaar Verified' : 'PAN Verified'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="warning" className="text-xs">
+                              <AlertCircle className="w-3.5 h-3.5" /> KYC Document Pending
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* "Be Owner" / "Be User" toggle button replacing Owner Dashboard / Edit Profile */}
-                  {profile?.role === 'user' ? (
+                  {/* "Be Owner" / "Be User" button */}
+                  {(profile?.role || user?.role) === 'user' ? (
                     <Button
                       variant="default"
                       size="default"
@@ -925,7 +1011,7 @@ export default function ProfilePage() {
                       <Building2 className="w-4 h-4 text-amber-600" />
                       {savingProfile ? 'Upgrading...' : 'Be Owner'}
                     </Button>
-                  ) : profile?.role === 'owner' ? (
+                  ) : (
                     <Button
                       variant="default"
                       size="default"
@@ -934,18 +1020,8 @@ export default function ProfilePage() {
                       className="gap-2 self-start sm:self-auto cursor-pointer font-bold shadow-md bg-[#f5efe6] text-neutral-950 hover:bg-[#eae2d5]"
                     >
                       <User className="w-4 h-4 text-sky-600" />
-                      {savingProfile ? 'Updating...' : 'Be User'}
+                      {savingProfile ? 'Redirecting...' : 'Be User'}
                     </Button>
-                  ) : (
-                    <Link to="/admin/dashboard" className="self-start sm:self-auto">
-                      <Button
-                        variant="default"
-                        size="default"
-                        className="gap-2 cursor-pointer font-bold shadow-md bg-[#f5efe6] text-neutral-950 hover:bg-[#eae2d5]"
-                      >
-                        <ShieldCheck className="w-4 h-4 text-amber-600" /> Admin Panel
-                      </Button>
-                    </Link>
                   )}
                 </div>
 
@@ -998,25 +1074,16 @@ export default function ProfilePage() {
                       <Calendar className="w-4 h-4 text-amber-400" />
                       <span>Account Role</span>
                     </div>
-                    <p className={`text-sm font-semibold capitalize ${isDark ? 'text-neutral-100' : 'text-neutral-900'}`}>
-                      {profile?.role === 'owner' ? 'Property Owner' : profile?.role === 'admin' ? 'Admin' : 'Tenant / User'}
-                    </p>
-                  </div>
-
-                  <div className={`p-3.5 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
-                    <div className="flex items-center gap-2 text-xs font-medium text-neutral-400 mb-1">
-                      <Building2 className="w-4 h-4 text-purple-400" />
-                      <span>Booked Rooms</span>
-                    </div>
-                    <p className={`text-sm font-semibold ${isDark ? 'text-neutral-100' : 'text-neutral-900'}`}>
-                      {bookedRoomsList.length} Active Booking (Max 1)
+                    <p className={`text-sm font-semibold capitalize ${isDark ? 'text-neutral-100' : 'text-neutral-950'}`}>
+                      {getRoleDisplayName(profile?.role || user?.role)}
                     </p>
                   </div>
                 </div>
               </Card>
 
-              {/* Booked Room Section: Displayed directly below user details card! */}
-              <Card className={`p-5 sm:p-6 rounded-2xl shadow-xl border ${isDark ? 'bg-[#121316] border-neutral-800' : 'bg-white border-[#e2dbcf]'}`}>
+              {/* Booked Room Section: Displayed directly below user details card for tenant users with active booking! */}
+              {!isOwner && !isAdmin && activeBookedRoom && (
+                <Card className={`p-5 sm:p-6 rounded-2xl shadow-xl border ${isDark ? 'bg-[#121316] border-neutral-800' : 'bg-white border-[#e2dbcf]'}`}>
                 <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
                   <div>
                     <h3 className={`text-lg font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-neutral-950'}`}>
@@ -1267,55 +1334,64 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 )}
-              </Card>
+                </Card>
+              )}
             </div>
           )}
 
           {/* =========================================================================
-              SECTION: EDIT PROFILE (Personal Information ONLY - No Document, No Password)
+              SECTION: EDIT PROFILE
+              If user is Admin, render Super Admin Credentials & Profile form (matching Image 2).
+              If user is Tenant or Owner, render their standard personal details form.
               ========================================================================= */}
           {activeSection === 'edit-profile' && (
-            <Card className={`p-5 sm:p-6 rounded-2xl shadow-xl space-y-5 border ${isDark ? 'bg-[#121316] border-neutral-800' : 'bg-white border-[#e2dbcf]'}`}>
-              <div className={`border-b pb-3 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
-                <h2 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-neutral-950'}`}>
-                  <Pencil className="w-5 h-5 text-[#f5efe6]" /> Edit Profile Details
-                </h2>
-                <p className={`text-xs mt-0.5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                  Update your personal information, contact number, location, and profile photo.
-                </p>
-              </div>
-
-              {profileSuccess && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  {profileSuccess}
+            isAdmin ? (
+              <Card className={`p-5 sm:p-6 rounded-2xl shadow-xl space-y-5 border ${isDark ? 'bg-[#121316] border-neutral-800' : 'bg-white border-[#e2dbcf]'}`}>
+                <div className={`border-b pb-3 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
+                  <h2 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-neutral-950'}`}>
+                    <Pencil className="w-5 h-5 text-amber-500" /> Admin Profile & Credentials
+                  </h2>
+                  <p className={`text-xs mt-0.5 ${isDark ? 'text-neutral-300' : 'text-neutral-600'}`}>
+                    Update Super Admin Name, Login Email ID, Contact Phone, Profile Picture, and Password.
+                  </p>
                 </div>
-              )}
 
-              {profileError && (
-                <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                  {profileError}
-                </div>
-              )}
+                {profileSuccess && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    {profileSuccess}
+                  </div>
+                )}
 
-              <form onSubmit={handleSaveProfile} className="space-y-5">
-                {/* Profile Photo Upload */}
-                <div>
-                  <Label>Profile Photo</Label>
-                  <div className="flex items-center gap-4 mt-2">
+                {profileError && (
+                  <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                    {profileError}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveProfile} className="space-y-4 text-sm">
+                  {/* Admin Profile Picture & Upload Button */}
+                  <div className="flex items-center gap-4 pb-3 border-b border-[#e2dbcf] dark:border-neutral-800">
                     <Avatar
                       src={editForm.profilePic}
-                      name={editForm.name || 'User'}
-                      size="lg"
-                      className={`w-16 h-16 ring-2 ${isDark ? 'ring-neutral-700' : 'ring-neutral-200'}`}
+                      name={editForm.name || 'Admin'}
+                      size="xl"
+                      className="w-18 h-18 border-2 border-amber-500/50 flex-shrink-0"
                     />
                     <div>
-                      <label className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition ${
-                        isDark ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200' : 'bg-[#ede5da] hover:bg-[#ded4c5] border-[#d8cdbf] text-neutral-900'
+                      <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                        Admin Profile Picture
+                      </Label>
+                      <label className={`mt-1.5 inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold cursor-pointer transition shadow-xs ${
+                        isDark
+                          ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-white'
+                          : 'bg-[#ede5da] hover:bg-[#ded4c5] border-[#d8cdbf] text-neutral-900'
                       }`}>
-                        <Upload className="w-4 h-4 text-[#d8cdbf]" />
-                        {uploadingPic ? 'Uploading Photo...' : 'Upload New Photo'}
+                        <Upload className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        <span className={isDark ? 'text-white font-bold' : 'text-neutral-900 font-bold'}>
+                          {uploadingPic ? 'Uploading...' : 'Upload New Photo'}
+                        </span>
                         <input
                           type="file"
                           accept="image/*"
@@ -1330,154 +1406,305 @@ export default function ProfilePage() {
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Personal Information Inputs */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Admin Full Name * */}
                   <div>
-                    <Label>Full Name *</Label>
+                    <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                      Admin Full Name *
+                    </Label>
                     <Input
                       required
-                      placeholder="e.g. Rahul Sharma"
+                      placeholder="Super Admin"
                       value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="text-neutral-950 dark:text-white bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800 font-medium"
                     />
                   </div>
 
+                  {/* Admin Login Email (User ID) * */}
                   <div>
-                    <Label>Email Address *</Label>
+                    <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                      Admin Login Email (User ID) *
+                    </Label>
                     <Input
                       type="email"
                       required
-                      placeholder="rahul@example.com"
+                      placeholder="admin@test.com"
                       value={editForm.email}
                       onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="text-neutral-950 dark:text-white bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800 font-medium"
                     />
                   </div>
 
+                  {/* Admin Contact Phone */}
                   <div>
-                    <Label>Phone Number</Label>
+                    <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                      Admin Contact Phone
+                    </Label>
                     <Input
                       type="tel"
-                      placeholder="e.g. 9876543210"
+                      placeholder="1234567890"
                       value={editForm.phone}
                       onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="text-neutral-950 dark:text-white bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800 font-medium"
                     />
                   </div>
 
+                  {/* New Admin Password (leave blank to keep current) */}
                   <div>
-                    <Label>Location (City / Area)</Label>
+                    <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                      New Admin Password (leave blank to keep current)
+                    </Label>
                     <Input
-                      placeholder="e.g. Vijay Nagar, Indore"
-                      value={editForm.location}
-                      onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                      type="password"
+                      minLength={6}
+                      placeholder="Enter new password (min 6 characters)"
+                      value={editForm.password || ''}
+                      onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                      className="text-neutral-950 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800 font-medium"
                     />
                   </div>
+
+                  {/* Action Buttons */}
+                  <div className={`pt-4 border-t flex items-center justify-end gap-3 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setActiveSection('overview')}
+                      className={`text-xs ${isDark ? 'border-neutral-700 text-neutral-300 hover:text-white' : 'border-[#d8cdbf] text-neutral-800'}`}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="default"
+                      disabled={savingProfile || uploadingPic}
+                      className={`text-xs font-bold gap-2 px-6 ${
+                        isDark
+                          ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 font-black'
+                          : 'bg-[#f5efe6] text-neutral-950 hover:bg-[#eae2d5] font-bold border border-[#d8cdbf]'
+                      }`}
+                    >
+                      {savingProfile ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                        </>
+                      ) : (
+                        'Save Admin Credentials'
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+            ) : (
+              <Card className={`p-5 sm:p-6 rounded-2xl shadow-xl space-y-5 border ${isDark ? 'bg-[#121316] border-neutral-800' : 'bg-white border-[#e2dbcf]'}`}>
+                <div className={`border-b pb-3 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
+                  <h2 className={`text-lg sm:text-xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-neutral-950'}`}>
+                    <Pencil className="w-5 h-5 text-[#f5efe6]" /> Edit Profile Details
+                  </h2>
+                  <p className={`text-xs mt-0.5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                    Update your personal information, contact number, location, and profile photo.
+                  </p>
                 </div>
 
-                {/* Account Role Selector with High-Contrast Custom Radios */}
-                {profile?.role !== 'admin' && (
-                  <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
-                    <Label className={`font-semibold ${isDark ? 'text-white' : 'text-neutral-950'}`}>Account Role</Label>
-                    <p className={`text-[11px] mb-3 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                      Select whether your primary role is browsing as a tenant or listing as a property owner.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
-                      {/* Tenant Radio Card */}
-                      <div
-                        role="radio"
-                        aria-checked={editForm.role === 'user'}
-                        onClick={() => setEditForm({ ...editForm, role: 'user' })}
-                        className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                          editForm.role === 'user'
-                            ? isDark
-                              ? 'bg-[#18191e] border-[#f5efe6] ring-1 ring-[#f5efe6]/40 text-white'
-                              : 'bg-[#f3ede2] border-neutral-900 ring-1 ring-neutral-900/30 text-neutral-950 shadow-xs'
-                            : isDark
-                              ? 'bg-[#0f1013] border-neutral-800 text-neutral-300 hover:border-neutral-700'
-                              : 'bg-white border-neutral-300 text-neutral-700 hover:border-neutral-400'
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                            editForm.role === 'user'
-                              ? isDark
-                                ? 'border-[#f5efe6] bg-[#f5efe6]'
-                                : 'border-neutral-900 bg-neutral-900'
-                              : isDark
-                                ? 'border-neutral-600 bg-transparent'
-                                : 'border-neutral-400 bg-transparent'
-                          }`}
-                        >
-                          {editForm.role === 'user' && (
-                            <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-neutral-950' : 'bg-white'}`} />
-                          )}
-                        </div>
-                        <span className="font-semibold text-xs sm:text-sm">Tenant / User</span>
-                      </div>
-
-                      {/* Owner Radio Card */}
-                      <div
-                        role="radio"
-                        aria-checked={editForm.role === 'owner'}
-                        onClick={() => setEditForm({ ...editForm, role: 'owner' })}
-                        className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
-                          editForm.role === 'owner'
-                            ? isDark
-                              ? 'bg-[#18191e] border-[#f5efe6] ring-1 ring-[#f5efe6]/40 text-white'
-                              : 'bg-[#f3ede2] border-neutral-900 ring-1 ring-neutral-900/30 text-neutral-950 shadow-xs'
-                            : isDark
-                              ? 'bg-[#0f1013] border-neutral-800 text-neutral-300 hover:border-neutral-700'
-                              : 'bg-white border-neutral-300 text-neutral-700 hover:border-neutral-400'
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                            editForm.role === 'owner'
-                              ? isDark
-                                ? 'border-[#f5efe6] bg-[#f5efe6]'
-                                : 'border-neutral-900 bg-neutral-900'
-                              : isDark
-                                ? 'border-neutral-600 bg-transparent'
-                                : 'border-neutral-400 bg-transparent'
-                          }`}
-                        >
-                          {editForm.role === 'owner' && (
-                            <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-neutral-950' : 'bg-white'}`} />
-                          )}
-                        </div>
-                        <span className="font-semibold text-xs sm:text-sm">Property Owner</span>
-                      </div>
-                    </div>
+                {profileSuccess && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    {profileSuccess}
                   </div>
                 )}
 
-                {/* Action Buttons */}
-                <div className={`pt-3 border-t flex items-center justify-end gap-3 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setActiveSection('overview')}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="default"
-                    disabled={savingProfile || uploadingPic}
-                    className="gap-2 px-6"
-                  >
-                    {savingProfile ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Saving...
-                      </>
-                    ) : (
-                      'Save Profile Details'
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Card>
+                {profileError && (
+                  <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                    {profileError}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveProfile} className="space-y-5">
+                  {/* Profile Photo Upload */}
+                  <div>
+                    <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>Profile Photo</Label>
+                    <div className="flex items-center gap-4 mt-2">
+                      <Avatar
+                        src={editForm.profilePic}
+                        name={editForm.name || 'User'}
+                        size="lg"
+                        className={`w-16 h-16 ring-2 ${isDark ? 'ring-neutral-700' : 'ring-neutral-200'}`}
+                      />
+                      <div>
+                        <label className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition ${
+                          isDark ? 'bg-neutral-800 hover:bg-neutral-700 border-neutral-700 text-neutral-200' : 'bg-[#ede5da] hover:bg-[#ded4c5] border-[#d8cdbf] text-neutral-900'
+                        }`}>
+                          <Upload className="w-4 h-4 text-[#d8cdbf]" />
+                          {uploadingPic ? 'Uploading Photo...' : 'Upload New Photo'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleProfilePicUpload(e.target.files?.[0])}
+                          />
+                        </label>
+                        {editForm.profilePic && (
+                          <p className="text-[11px] text-emerald-400 flex items-center gap-1 mt-1 font-medium">
+                            <CheckCircle2 className="w-3 h-3" /> Photo updated
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Personal Information Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>Full Name *</Label>
+                      <Input
+                        required
+                        placeholder="e.g. Rahul Sharma"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="text-neutral-950 dark:text-white bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>Email Address *</Label>
+                      <Input
+                        type="email"
+                        required
+                        placeholder="rahul@example.com"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                        className="text-neutral-950 dark:text-white bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>Phone Number</Label>
+                      <Input
+                        type="tel"
+                        placeholder="e.g. 9876543210"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                        className="text-neutral-950 dark:text-white bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className={`text-xs font-semibold ${isDark ? 'text-neutral-200' : 'text-neutral-800'}`}>Location (City / Area)</Label>
+                      <Input
+                        placeholder="e.g. Vijay Nagar, Indore"
+                        value={editForm.location}
+                        onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                        className="text-neutral-950 dark:text-white bg-[#f8f5ee] dark:bg-[#0f1013] border-[#e2dbcf] dark:border-neutral-800"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Account Role Selector with High-Contrast Custom Radios */}
+                  {profile?.role !== 'admin' && (
+                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
+                      <Label className={`font-semibold ${isDark ? 'text-white' : 'text-neutral-950'}`}>Account Role</Label>
+                      <p className={`text-[11px] mb-3 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                        Select whether your primary role is browsing as a tenant or listing as a property owner.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
+                        {/* Tenant Radio Card */}
+                        <div
+                          role="radio"
+                          aria-checked={editForm.role === 'user'}
+                          onClick={() => setEditForm({ ...editForm, role: 'user' })}
+                          className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                            editForm.role === 'user'
+                              ? isDark
+                                ? 'bg-[#18191e] border-[#f5efe6] ring-1 ring-[#f5efe6]/40 text-white'
+                                : 'bg-[#f3ede2] border-neutral-900 ring-1 ring-neutral-900/30 text-neutral-950 shadow-xs'
+                              : isDark
+                                ? 'bg-[#0f1013] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                                : 'bg-white border-neutral-300 text-neutral-700 hover:border-neutral-400'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                              editForm.role === 'user'
+                                ? isDark
+                                  ? 'border-[#f5efe6] bg-[#f5efe6]'
+                                  : 'border-neutral-900 bg-neutral-900'
+                                : isDark
+                                  ? 'border-neutral-600 bg-transparent'
+                                  : 'border-neutral-400 bg-transparent'
+                            }`}
+                          >
+                            {editForm.role === 'user' && (
+                              <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-neutral-950' : 'bg-white'}`} />
+                            )}
+                          </div>
+                          <span className="font-semibold text-xs sm:text-sm">Tenant / User</span>
+                        </div>
+
+                        {/* Owner Radio Card */}
+                        <div
+                          role="radio"
+                          aria-checked={editForm.role === 'owner'}
+                          onClick={() => setEditForm({ ...editForm, role: 'owner' })}
+                          className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                            editForm.role === 'owner'
+                              ? isDark
+                                ? 'bg-[#18191e] border-[#f5efe6] ring-1 ring-[#f5efe6]/40 text-white'
+                                : 'bg-[#f3ede2] border-neutral-900 ring-1 ring-neutral-900/30 text-neutral-950 shadow-xs'
+                              : isDark
+                                ? 'bg-[#0f1013] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                                : 'bg-white border-neutral-300 text-neutral-700 hover:border-neutral-400'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                              editForm.role === 'owner'
+                                ? isDark
+                                  ? 'border-[#f5efe6] bg-[#f5efe6]'
+                                  : 'border-neutral-900 bg-neutral-900'
+                                : isDark
+                                  ? 'border-neutral-600 bg-transparent'
+                                  : 'border-neutral-400 bg-transparent'
+                            }`}
+                          >
+                            {editForm.role === 'owner' && (
+                              <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-neutral-950' : 'bg-white'}`} />
+                            )}
+                          </div>
+                          <span className="font-semibold text-xs sm:text-sm">Property Owner</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className={`pt-3 border-t flex items-center justify-end gap-3 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setActiveSection('overview')}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="default"
+                      disabled={savingProfile || uploadingPic}
+                      className="gap-2 px-6"
+                    >
+                      {savingProfile ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                        </>
+                      ) : (
+                        'Save Profile Details'
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+            )
           )}
 
           {/* =========================================================================
@@ -1888,6 +2115,192 @@ export default function ProfilePage() {
                   </form>
                 </Card>
               )}
+
+              {/* =========================================================================
+                  BANK ACCOUNT DETAILS SECTION & UPDATE ACCOUNT BUTTON
+                  ========================================================================= */}
+              <Card className={`p-5 sm:p-6 rounded-2xl shadow-xl space-y-5 border ${isDark ? 'bg-[#121316] border-neutral-800' : 'bg-white border-[#e2dbcf]'}`}>
+                <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+                      <Landmark className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className={`text-base sm:text-lg font-bold ${isDark ? 'text-white' : 'text-neutral-950'}`}>
+                          Bank Account & Payout Details
+                        </h3>
+                        {profile?.accountDetails?.accountNumber ? (
+                          <Badge variant="success" className="text-xs font-semibold">
+                            ✓ Account Linked
+                          </Badge>
+                        ) : (
+                          <Badge variant="warning" className="text-xs font-semibold">
+                            Pending Details
+                          </Badge>
+                        )}
+                      </div>
+                      <p className={`text-xs mt-0.5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                        Bank account information used for receiving monthly rent payments, booking deposits, and payouts.
+                      </p>
+                    </div>
+                  </div>
+
+                  {profile?.accountDetails?.accountNumber && !isEditingBank && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingBank(true)}
+                      className={`text-xs gap-1.5 flex-shrink-0 cursor-pointer ${
+                        isDark ? 'border-neutral-700 text-[#f5efe6]' : 'border-[#d8cdbf] text-neutral-900'
+                      }`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" /> Update Account
+                    </Button>
+                  )}
+                </div>
+
+                {bankSuccess && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    {bankSuccess}
+                  </div>
+                )}
+
+                {bankError && (
+                  <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                    {bankError}
+                  </div>
+                )}
+
+                {/* Current Account Details Display (when not editing) */}
+                {profile?.accountDetails?.accountNumber && !isEditingBank ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Account Holder Name</p>
+                        <p className={`text-sm font-bold mt-1 ${isDark ? 'text-neutral-100' : 'text-neutral-950'}`}>
+                          {profile.accountDetails.accountHolderName || profile.name || '—'}
+                        </p>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Bank Name</p>
+                        <p className={`text-sm font-bold mt-1 ${isDark ? 'text-neutral-100' : 'text-neutral-950'}`}>
+                          {profile.accountDetails.bankName || '—'}
+                        </p>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Bank Account Number</p>
+                        <p className={`text-sm font-mono font-bold mt-1 ${isDark ? 'text-neutral-100' : 'text-neutral-950'}`}>
+                          {profile.accountDetails.accountNumber || '—'}
+                        </p>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">IFSC Code</p>
+                        <p className={`text-sm font-mono font-bold mt-1 ${isDark ? 'text-neutral-100' : 'text-neutral-950'}`}>
+                          {profile.accountDetails.ifscCode || '—'}
+                        </p>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#0f1013] border-neutral-800' : 'bg-[#f8f5ee] border-[#e2dbcf]'}`}>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">UPI ID / VPA</p>
+                        <p className={`text-sm font-bold mt-1 ${isDark ? 'text-sky-400' : 'text-sky-600'}`}>
+                          {profile.accountDetails.upiId || '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Form to Add or Update Bank Details */
+                  <form onSubmit={handleSaveBank} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Account Holder Name *</Label>
+                        <Input
+                          required
+                          placeholder="e.g. Vikram Verma"
+                          value={bankForm.accountHolderName}
+                          onChange={(e) => setBankForm({ ...bankForm, accountHolderName: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Bank Name *</Label>
+                        <Input
+                          required
+                          placeholder="e.g. State Bank of India / HDFC Bank"
+                          value={bankForm.bankName}
+                          onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Account Number *</Label>
+                        <Input
+                          required
+                          placeholder="Enter your bank account number"
+                          value={bankForm.accountNumber}
+                          onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
+                          className="font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <Label>IFSC Code *</Label>
+                        <Input
+                          required
+                          maxLength={11}
+                          placeholder="e.g. SBIN0001234"
+                          value={bankForm.ifscCode}
+                          onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase() })}
+                          className="font-mono uppercase"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <Label>UPI ID / VPA (Optional for instant payouts)</Label>
+                        <Input
+                          placeholder="e.g. yourname@oksbi / 9876543210@paytm"
+                          value={bankForm.upiId}
+                          onChange={(e) => setBankForm({ ...bankForm, upiId: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={`pt-3 border-t flex items-center justify-end gap-3 ${isDark ? 'border-neutral-800' : 'border-[#e2dbcf]'}`}>
+                      {profile?.accountDetails?.accountNumber && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsEditingBank(false)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                      <Button
+                        type="submit"
+                        variant="default"
+                        disabled={savingBank}
+                        className="gap-2 px-6"
+                      >
+                        {savingBank ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" /> Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Landmark className="w-4 h-4" /> Update Account
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </Card>
             </div>
           )}
 

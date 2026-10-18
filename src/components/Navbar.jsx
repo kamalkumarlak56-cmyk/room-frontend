@@ -18,6 +18,14 @@ import {
   Moon,
 } from 'lucide-react';
 
+export const getRoleDisplayName = (role) => {
+  if (!role) return 'Tenant / User';
+  const r = role.toLowerCase();
+  if (r === 'admin') return 'Admin';
+  if (r === 'owner' || r === 'landlord') return 'Owner';
+  return 'Tenant / User';
+};
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
@@ -55,14 +63,14 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
-  const isOwner = user && (user.role === 'owner' || user.role === 'admin');
+  const isOwner = user && (user.role === 'owner' || user.role === 'landlord');
   const isAdmin = user && user.role === 'admin';
   const isTenantOrGuest = !user || user.role === 'user';
   const wishlistCount = Array.isArray(user?.wishlist) ? user.wishlist.length : 0;
 
   return (
     <nav className="bg-[#0a0b0d]/95 backdrop-blur-md border-b border-neutral-800/80 sticky top-0 z-40 transition-colors py-[4px]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between relative">
+      <div className="w-full px-[5px] h-12 flex items-center justify-between relative">
         {/* Left Side: Brand Logo & Title */}
         <div className="flex items-center flex-shrink-0">
           <Link to={user?.role === 'owner' ? '/owner/dashboard' : '/'} className="flex items-center gap-2.5 group">
@@ -95,18 +103,77 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Center / Middle of Navbar: "Available rooms" (for Tenants/Guests) OR "Owner Panel" (for Owners) */}
-        <div className="hidden md:flex items-center justify-center absolute left-1/2 -translate-x-1/2">
+        {/* Center: Owner Panel button for Property Owners (exclusive to owners, not shown to admin) */}
+        {isOwner && (
+          <div className="hidden md:flex items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+            <Link
+              to="/owner/dashboard"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition border whitespace-nowrap ${
+                location.pathname.startsWith('/owner')
+                  ? isDark
+                    ? 'bg-[#f5efe6] text-neutral-950 border-[#d8cdbf] shadow-sm'
+                    : 'bg-[#121316] text-[#f5efe6] border-neutral-900 shadow-sm'
+                  : isDark
+                  ? 'text-neutral-300 hover:text-white hover:bg-neutral-900 border-neutral-800'
+                  : 'text-neutral-800 hover:text-neutral-950 hover:bg-[#ede5da] border-neutral-300'
+              }`}
+            >
+              <Building2
+                className={`w-4 h-4 ${
+                  location.pathname.startsWith('/owner')
+                    ? isDark
+                      ? 'text-neutral-950'
+                      : 'text-[#f5efe6]'
+                    : 'text-emerald-500'
+                }`}
+              />
+              <span>Owner Panel</span>
+            </Link>
+          </div>
+        )}
+
+        {/* Center: Admin Panel button for Admin (at the middle with same bg and text styling as Owner Panel) */}
+        {isAdmin && (
+          <div className="hidden md:flex items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-auto">
+            <Link
+              to="/admin/dashboard"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition border whitespace-nowrap ${
+                location.pathname.startsWith('/admin')
+                  ? isDark
+                    ? 'bg-[#f5efe6] text-neutral-950 border-[#d8cdbf] shadow-sm'
+                    : 'bg-[#121316] text-[#f5efe6] border-neutral-900 shadow-sm'
+                  : isDark
+                  ? 'text-neutral-300 hover:text-white hover:bg-neutral-900 border-neutral-800'
+                  : 'text-neutral-800 hover:text-neutral-950 hover:bg-[#ede5da] border-neutral-300'
+              }`}
+            >
+              <Shield
+                className={`w-4 h-4 ${
+                  location.pathname.startsWith('/admin')
+                    ? isDark
+                      ? 'text-neutral-950'
+                      : 'text-[#f5efe6]'
+                    : 'text-amber-500'
+                }`}
+              />
+              <span>Admin Panel</span>
+            </Link>
+          </div>
+        )}
+
+        {/* Right Side of Navbar: Role-specific links & Profile */}
+        <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+          {/* Available rooms: Only for Tenants & Guests */}
           {isTenantOrGuest && (
             <Link
               to="/"
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition border whitespace-nowrap ${
                 isActive('/')
                   ? isDark
                     ? 'bg-[#f5efe6] text-neutral-950 border-[#d8cdbf] shadow-sm'
                     : 'bg-[#121316] text-[#f5efe6] border-neutral-900 shadow-sm'
                   : isDark
-                  ? 'text-neutral-300 hover:text-white hover:bg-neutral-900/90 border-transparent'
+                  ? 'text-neutral-300 hover:text-white hover:bg-neutral-900 border-transparent'
                   : 'text-neutral-700 hover:text-neutral-950 hover:bg-[#ede5da] border-transparent'
               }`}
             >
@@ -125,40 +192,11 @@ export default function Navbar() {
             </Link>
           )}
 
-          {isOwner && (
-            <Link
-              to="/owner/dashboard"
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition border ${
-                isActive('/owner/dashboard')
-                  ? isDark
-                    ? 'bg-[#f5efe6] text-neutral-950 border-[#d8cdbf] shadow-sm'
-                    : 'bg-[#121316] text-[#f5efe6] border-neutral-900 shadow-sm'
-                  : isDark
-                  ? 'text-neutral-300 hover:text-white hover:bg-neutral-900/90 border-neutral-800'
-                  : 'text-neutral-800 hover:text-neutral-950 hover:bg-[#ede5da] border-neutral-300'
-              }`}
-            >
-              <Building2
-                className={`w-4 h-4 ${
-                  isActive('/owner/dashboard')
-                    ? isDark
-                      ? 'text-neutral-950'
-                      : 'text-[#f5efe6]'
-                    : 'text-emerald-500'
-                }`}
-              />
-              <span>Owner Panel</span>
-            </Link>
-          )}
-        </div>
-
-        {/* Right Side of Navbar: Role-specific links & Profile */}
-        <div className="hidden md:flex items-center gap-2 flex-shrink-0">
           {/* Search Rooms: Only for Tenants & Guests */}
           {isTenantOrGuest && (
             <Link
               to="/searchrooms"
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition border ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition border whitespace-nowrap ${
                 isActive('/searchrooms') || isActive('/search')
                   ? isDark
                     ? 'bg-[#f5efe6]/15 text-[#f5efe6] border-[#f5efe6]/30'
@@ -218,21 +256,6 @@ export default function Navbar() {
             </>
           )}
 
-          {/* Admin Panel */}
-          {isAdmin && (
-            <Link
-              to="/admin/dashboard"
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition border ${
-                isActive('/admin/dashboard')
-                  ? 'bg-amber-500/15 text-[#f5efe6] border-amber-500/30'
-                  : 'text-amber-300/90 hover:text-amber-200 hover:bg-amber-500/10 border-transparent'
-              }`}
-            >
-              <Shield className="w-4 h-4" />
-              <span>Admin Panel</span>
-            </Link>
-          )}
-
           {/* User Profile Picture & Name ONLY (Clicking redirects to /profile) */}
           {user ? (
             <div className="pl-2 border-l border-neutral-800">
@@ -259,8 +282,8 @@ export default function Navbar() {
                   <p className="text-xs font-semibold truncate max-w-[120px]">
                     {user.name}
                   </p>
-                  <p className={`text-[10px] capitalize font-medium ${isDark ? 'text-[#d8cdbf]' : 'text-neutral-500'}`}>
-                    {user.role}
+                  <p className={`text-[10px] font-semibold tracking-wide ${isDark ? 'text-[#d8cdbf]' : 'text-neutral-600'}`}>
+                    {getRoleDisplayName(user.role)}
                   </p>
                 </div>
               </Link>
@@ -332,8 +355,8 @@ export default function Navbar() {
               />
               <div className="text-left leading-tight">
                 <p className="text-sm font-semibold">{user.name}</p>
-                <p className={`text-[11px] capitalize font-medium ${isDark ? 'text-[#d8cdbf]' : 'text-neutral-500'}`}>
-                  {user.role} • Tap to view profile
+                <p className={`text-[11px] font-semibold tracking-wide ${isDark ? 'text-[#d8cdbf]' : 'text-neutral-600'}`}>
+                  {getRoleDisplayName(user.role)} • Tap to view profile
                 </p>
               </div>
             </Link>
@@ -420,7 +443,7 @@ export default function Navbar() {
               to="/owner/dashboard"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold transition ${
-                isActive('/owner/dashboard')
+                location.pathname.startsWith('/owner')
                   ? isDark
                     ? 'bg-[#f5efe6] text-neutral-950 font-bold'
                     : 'bg-[#121316] text-[#f5efe6] font-bold'
@@ -438,9 +461,17 @@ export default function Navbar() {
             <Link
               to="/admin/dashboard"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-amber-300 hover:bg-neutral-850"
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold transition ${
+                location.pathname.startsWith('/admin')
+                  ? isDark
+                    ? 'bg-[#f5efe6] text-neutral-950 font-bold'
+                    : 'bg-[#121316] text-[#f5efe6] font-bold'
+                  : isDark
+                  ? 'text-neutral-200 hover:bg-neutral-850'
+                  : 'text-neutral-800 hover:bg-[#ede5da]'
+              }`}
             >
-              <Shield className="w-4 h-4" />
+              <Shield className="w-4 h-4 text-amber-400" />
               <span>Admin Panel</span>
             </Link>
           )}

@@ -21,7 +21,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (user?.role === 'owner') {
-      navigate('/owner/dashboard', { replace: true });
+      navigate('/owner/chats', { replace: true });
     }
   }, [user, navigate]);
 
@@ -32,21 +32,39 @@ export default function ChatPage() {
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [sending, setSending] = useState(false);
 
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const activeConvIdRef = useRef(initialConvId || null);
+
+  const scrollToBottom = (behavior = 'auto') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
+    }
+  };
+
+  const handleSelectConv = (conv) => {
+    activeConvIdRef.current = conv._id;
+    setActiveConv(conv);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
 
   const fetchConversations = async () => {
     try {
       const { data } = await API.get('/chat/conversations');
       setConversations(data);
 
-      if (!activeConv && data.length > 0) {
-        const matched = initialConvId
-          ? data.find((c) => c._id === initialConvId)
-          : data[0];
-        setActiveConv(matched || data[0]);
-      } else if (activeConv) {
-        const updatedActive = data.find((c) => c._id === activeConv._id);
-        if (updatedActive) setActiveConv(updatedActive);
+      const targetId = activeConvIdRef.current || initialConvId;
+
+      if (!targetId && data.length > 0) {
+        activeConvIdRef.current = data[0]._id;
+        setActiveConv(data[0]);
+      } else if (targetId && data.length > 0) {
+        const currentSelected = data.find((c) => c._id === targetId);
+        if (currentSelected) {
+          setActiveConv(currentSelected);
+        }
       }
     } catch (err) {
       console.error('Error loading conversations', err);
@@ -73,14 +91,18 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!activeConv?._id) return;
+    window.scrollTo({ top: 0, behavior: 'instant' });
     fetchMessages(activeConv._id);
     const interval = setInterval(() => fetchMessages(activeConv._id), 2500);
     return () => clearInterval(interval);
   }, [activeConv?._id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    requestAnimationFrame(() => {
+      scrollToBottom('auto');
+    });
+  }, [messages.length, activeConv?._id]);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -99,6 +121,7 @@ export default function ChatPage() {
       });
       setMessages((prev) => [...prev, newMsg]);
       fetchConversations();
+      requestAnimationFrame(() => scrollToBottom('smooth'));
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to send message');
     } finally {
@@ -152,7 +175,7 @@ export default function ChatPage() {
                   <button
                     key={conv._id}
                     type="button"
-                    onClick={() => setActiveConv(conv)}
+                    onClick={() => handleSelectConv(conv)}
                     className={`w-full p-4 text-left flex items-start gap-3 transition cursor-pointer ${
                       isSelected
                         ? 'bg-[#f5efe6] dark:bg-[#f5efe6]/10 border-l-4 border-l-neutral-900 dark:border-l-[#d8cdbf]'
@@ -246,7 +269,10 @@ export default function ChatPage() {
               </div>
 
               {/* Messages List */}
-              <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-neutral-100/40 dark:bg-[#0d0e12]">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-neutral-100/40 dark:bg-[#0d0e12]"
+              >
                 {messages.map((msg) => {
                   const currentUserId = String(user?._id || user?.id || '').trim();
                   const rawSenderId =
@@ -323,7 +349,6 @@ export default function ChatPage() {
                     </div>
                   );
                 })}
-                <div ref={messagesEndRef} />
               </div>
 
               {/* Message Composer */}

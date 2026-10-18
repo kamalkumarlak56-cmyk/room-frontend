@@ -116,7 +116,12 @@ html.light nav {
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
 
-html.light .bg-\[\#0e0f13\] {
+html.light .bg-\[\#0e0f13\],
+html.light .bg-\[\#0d0e12\],
+html.light .bg-\[\#0b0c0f\],
+html.light .bg-\[\#16171d\],
+html.light .bg-\[\#14151a\],
+html.light aside {
   background-color: #ffffff !important;
   border-color: #e2dbcf !important;
 }
@@ -145,8 +150,17 @@ html.light .bg-\[\#0f1013\] {
   border-color: #e2dbcf !important;
 }
 
+html.light .bg-neutral-950,
+html.light .bg-neutral-950\/60,
+html.light .bg-neutral-950\/70,
+html.light .bg-neutral-950\/80 {
+  background-color: #f8f5ee !important;
+  border-color: #ded6c9 !important;
+}
+
 html.light .bg-neutral-900,
 html.light .bg-neutral-900\/60,
+html.light .bg-neutral-900\/70,
 html.light .bg-neutral-900\/80,
 html.light .bg-neutral-900\/90 {
   background-color: #f4eee5 !important;
@@ -161,6 +175,16 @@ html.light .bg-\[\#141519\] {
 html.light .from-\[\#141519\] {
   --tw-gradient-from: #f3ede2 !important;
   --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) 0%, var(--tw-gradient-to) 100%) !important;
+}
+html.light .from-neutral-900 {
+  --tw-gradient-from: #ffffff !important;
+}
+html.light .via-\[\#16171d\] {
+  --tw-gradient-via: #fbf9f5 !important;
+}
+html.light .to-\[\#121316\],
+html.light .to-\[\#14151a\] {
+  --tw-gradient-to: #f4eee5 !important;
 }
 html.light .via-\[\#0f1013\] {
   --tw-gradient-via: #f6f1e8 !important;
@@ -232,8 +256,8 @@ html.light .text-amber-400\/80 {
 }
 
 /* In Light Mode: NEVER allow text to be white or pale cream on light surfaces (except intentional dark badges) */
-html.light .text-white:not([data-keep-white]):not([data-overlay-text]):not([data-overlay-text] *):not([data-slider-media] *):not([data-card-media] *):not(.bg-neutral-900 *):not(.bg-neutral-950 *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-emerald-500 *):not(.bg-emerald-600 *):not([data-role-badge]):not([data-role-badge] *),
-html.light .text-\[\#f5efe6\]:not([data-keep-white]):not([data-overlay-text]):not([data-overlay-text] *):not([data-slider-media] *):not([data-card-media] *):not(.bg-neutral-900 *):not(.bg-neutral-950 *):not([data-role-badge]):not([data-role-badge] *) {
+html.light .text-white:not([data-keep-white]):not([data-overlay-text]):not([data-overlay-text] *):not([data-slider-media] *):not([data-card-media] *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-emerald-500 *):not(.bg-emerald-600 *):not([data-role-badge]):not([data-role-badge] *),
+html.light .text-\[\#f5efe6\]:not([data-keep-white]):not([data-overlay-text]):not([data-overlay-text] *):not([data-slider-media] *):not([data-card-media] *):not([data-role-badge]):not([data-role-badge] *) {
   color: #121316 !important;
 }
 

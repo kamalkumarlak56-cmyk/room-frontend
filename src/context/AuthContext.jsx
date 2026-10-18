@@ -1,10 +1,11 @@
-// client/src/context/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import API from '../api/axios';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -99,6 +100,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('userInfo');
     setUser(null);
+    navigate('/', { replace: true });
   };
 
   return (

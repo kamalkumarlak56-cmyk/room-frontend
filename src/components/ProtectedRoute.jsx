@@ -6,7 +6,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
   const { user } = useAuth();
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const normalizedRole = user.role === 'landlord' ? 'owner' : user.role;

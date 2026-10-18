@@ -46,12 +46,16 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-[#0a0b0d] px-4 py-10">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0b0d] px-4 py-10">
       <Card className="max-w-md w-full p-8 bg-[#121316] border border-neutral-800">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5efe6]/10 border border-[#f5efe6]/25 text-[#f5efe6] text-xs font-semibold mb-2">
+          <Link
+            to="/"
+            title="Back to Home"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5efe6]/10 border border-[#f5efe6]/25 text-[#f5efe6] text-xs font-semibold mb-2 hover:bg-[#f5efe6]/20 transition"
+          >
             <ShieldCheck className="w-3.5 h-3.5 text-[#d8cdbf]" /> Zero-Broker Room Rental Platform
-          </div>
+          </Link>
           <h2 className="text-2xl font-extrabold text-white">Create Your Account</h2>
           <p className="text-xs text-neutral-400 mt-1">
             Join as a User to search rooms or as an Owner to publish your rooms

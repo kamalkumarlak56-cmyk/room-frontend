@@ -39,12 +39,16 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-[#0a0b0d] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0b0d] px-4 py-8">
       <Card className="max-w-md w-full p-8 bg-[#121316] border border-neutral-800">
         <div className="text-center mb-6">
-          <div className="w-11 h-11 rounded-2xl bg-neutral-900 border border-[#d8cdbf]/40 flex items-center justify-center mx-auto mb-3 shadow-sm">
+          <Link
+            to="/"
+            title="Back to Home"
+            className="w-11 h-11 rounded-2xl bg-neutral-900 border border-[#d8cdbf]/40 flex items-center justify-center mx-auto mb-3 shadow-sm hover:border-[#d8cdbf] transition"
+          >
             <Home className="w-6 h-6 text-[#f5efe6]" />
-          </div>
+          </Link>
           <h2 className="text-2xl font-extrabold text-white">Welcome Back</h2>
           <p className="text-xs text-neutral-400 mt-1">
             Sign in as User, Owner, or Admin

@@ -42,7 +42,11 @@ const getBaseURL = () => {
 };
 
 const API = axios.create({
+<<<<<<< HEAD
   baseURL: getBaseURL(),
+=======
+  baseURL: import.meta.env.VITE_API_URL 
+>>>>>>> 7c4d6bdf2ae31848919293cd8908792183532c49
 });
 
 // Attach token to headers if present in localStorage
